@@ -12,44 +12,55 @@ const dbConfig = {
   database: 'nodedb',
 };
 
-app.get('/', (_req, res) => {
-  InsertName(res);
+// Usando um pool de conexões
+const pool = mysql.createPool(dbConfig);
+
+app.get('/', async (_req, res) => {
+  try {
+    await insertName(res);
+  } catch (error) {
+    console.error('Error in request:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.listen(PORT, () => {
-  console.log(`Application running on Port...: ${PORT} 🚀`);
+  console.log(`Application running on Port: ${PORT} 🚀`);
 });
 
 async function getName() {
-  const RANDOM = Math.floor(Math.random() * 10);
-  const response = await axios.get('https://swapi.dev/api/people');
-  return response.data.results[RANDOM].name;
+  try {
+    const RANDOM = Math.floor(Math.random() * 10);
+    const response = await axios.get('https://swapi.dev/api/people');
+    return response.data.results[RANDOM].name;
+  } catch (error) {
+    console.error('Error fetching name:', error);
+    throw new Error('Failed to fetch name');
+  }
 }
 
-async function InsertName(res) {
+async function insertName(res) {
   const name = await getName();
-  const connection = mysql.createConnection(dbConfig);
-  const INSERT_QUERY = `INSERT INTO people(name) values('${name}')`;
+  const INSERT_QUERY = 'INSERT INTO people (name) VALUES (?)';
 
-  connection.query(INSERT_QUERY, (error, _results, _fields) => {
+  pool.query(INSERT_QUERY, [name], (error) => {
     if (error) {
-      console.log(`Error inserting name: ${error}`);
+      console.error(`Error inserting name: ${error}`);
       res.status(500).send('Error inserting name');
       return;
     }
-
     console.log(`${name} inserted successfully in the database!`);
-    getAll(res, connection);
+    getAll(res);
   });
 }
 
-function getAll(res, connection) {
-  const SELECT_QUERY = `SELECT id, name FROM people`;
+function getAll(res) {
+  const SELECT_QUERY = 'SELECT id, name FROM people';
 
-  connection.query(SELECT_QUERY, (error, results) => {
+  pool.query(SELECT_QUERY, (error, results) => {
     if (error) {
-      console.log(`Error getting people: ${error}`);
-      res.status(500).send('Error getting people');
+      console.error(`Error fetching people: ${error}`);
+      res.status(500).send('Error fetching people');
       return;
     }
 
@@ -59,10 +70,10 @@ function getAll(res, connection) {
         <tr>
           <td>${person.id}</td>
           <td>${person.name}</td>
-        </tr>
-      `
+        </tr>`
       )
       .join('');
+
     const table = `
       <table>
         <tr>
@@ -75,7 +86,5 @@ function getAll(res, connection) {
       <h1>Full Cycle Rocks!</h1>
       ${table}
     `);
-
-    connection.end();
   });
 }
