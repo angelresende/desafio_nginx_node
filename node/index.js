@@ -12,9 +12,6 @@ const dbConfig = {
   database: 'nodedb',
 };
 
-// Usando um pool de conexões
-const pool = mysql.createPool(dbConfig);
-
 app.get('/', async (_req, res) => {
   try {
     await insertName(res);
@@ -25,7 +22,7 @@ app.get('/', async (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Application running on Port: ${PORT} 🚀`);
+  console.log(`Application running on Port: ${PORT}`);
 });
 
 async function getName() {
@@ -41,9 +38,10 @@ async function getName() {
 
 async function insertName(res) {
   const name = await getName();
+  const connection = mysql.createConnection(dbConfig);
   const INSERT_QUERY = 'INSERT INTO people (name) VALUES (?)';
 
-  pool.query(INSERT_QUERY, [name], (error) => {
+  connection.query(INSERT_QUERY, [name], (error) => {
     if (error) {
       console.error(`Error inserting name: ${error}`);
       res.status(500).send('Error inserting name');
@@ -57,7 +55,7 @@ async function insertName(res) {
 function getAll(res) {
   const SELECT_QUERY = 'SELECT id, name FROM people';
 
-  pool.query(SELECT_QUERY, (error, results) => {
+  connection.query(SELECT_QUERY, (error, results) => {
     if (error) {
       console.error(`Error fetching people: ${error}`);
       res.status(500).send('Error fetching people');
